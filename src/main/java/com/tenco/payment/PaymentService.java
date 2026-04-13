@@ -1,4 +1,4 @@
-package payment;
+package com.tenco.payment;
 
 public class PaymentService {
 }

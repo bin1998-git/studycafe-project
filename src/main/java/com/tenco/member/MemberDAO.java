@@ -1,4 +1,4 @@
-package member;
+package com.tenco.member;
 
 public class MemberDAO {
 }

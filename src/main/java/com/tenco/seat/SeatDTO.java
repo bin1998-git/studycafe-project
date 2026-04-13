@@ -1,4 +1,4 @@
-package seat;
+package com.tenco.seat;
 
 public class SeatDTO {
 }
