@@ -11,7 +11,7 @@ import lombok.*;
 public class TicketDTO {
     private int ticketId;
     private String name;
-    private Enum type;
+    private TicketType type;
     private int durationValue;
     private int price;
     private String description;
