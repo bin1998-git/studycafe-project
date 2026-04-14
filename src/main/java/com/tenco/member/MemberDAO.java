@@ -104,6 +104,42 @@ public class MemberDAO {
 
     }
 
+    // 전화번호 중복 체크
+    public boolean existsByPhone(String phone) throws SQLException {
+        String sql = """
+                    SELECT COUNT(*) FROM MEMBER WHERE phone = ?
+                """;
+
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstm = conn.prepareStatement(sql)) {
+            pstm.setString(1, phone);
+
+            try (ResultSet rs = pstm.executeQuery()) {
+               if (rs.next()) {
+                   return rs.getInt(1) > 0;
+               }
+            }
+        }
+        return false;
+    }
+
+    public boolean existsByEmail(String email) throws SQLException {
+        String sql = """
+                    SELECT COUNT(*) FROM MEMBER WHERE email = ?
+                """;
+        try (Connection conn = DBConnectionManager.getConnection();
+            PreparedStatement pstm = conn.prepareStatement(sql)) {
+            pstm.setString(1, email);
+
+            try (ResultSet rs = pstm.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
+
 
 
 
