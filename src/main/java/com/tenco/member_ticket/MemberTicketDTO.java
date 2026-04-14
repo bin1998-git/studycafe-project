@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class MemberTicketDTO {
     private int memberTicketId;
-    private MemberDTO memberId;
-    private TicketDTO ticketId;
+    private int memberId;
+    private int ticketId;
     private LocalDateTime startedAt;
     private LocalDateTime expiredAt;
     private String status;
