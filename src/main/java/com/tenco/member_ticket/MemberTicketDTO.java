@@ -1,6 +1,7 @@
-package com.tenco.ticket;
+package com.tenco.member_ticket;
 
 import com.tenco.member.MemberDTO;
+import com.tenco.ticket.TicketDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
