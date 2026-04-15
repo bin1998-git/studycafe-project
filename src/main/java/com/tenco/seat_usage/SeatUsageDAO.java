@@ -1,7 +1,11 @@
 package com.tenco.seat_usage;
 
-import com.tenco.member.MemberDTO;
+
 import com.tenco.util.DBConnectionManager;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -9,6 +13,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+@NoArgsConstructor
+@Data
+@Builder
+@AllArgsConstructor
 
 public class SeatUsageDAO {
 
@@ -65,7 +73,20 @@ public class SeatUsageDAO {
 
     // 회원별 이용 내역 조회
     public List<SeatUsageDTO> findByMemberId(int memberId) throws SQLException {
-        return null;
+        List<SeatUsageDTO> seatUsageDTOList = new ArrayList<>();
+        String findByMemberidSql = """
+        SELECT * FROM SEATUSAGE WHERE member_id = ?
+        """;
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(findByMemberidSql)) {
+            pstmt.setInt(1, memberId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+
+                }
+            }
+        }
+        return seatUsageDTOList;
     }
 
 
