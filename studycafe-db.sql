@@ -166,3 +166,11 @@ INSERT INTO SEAT_USAGE (member_id, seat_id, member_ticket_id, started_at, ended_
     
     -- [재방문] 아령(1)이 다른 시간에 일반석(2번)을 다시 이용 중
     (1, 2, 1, '2026-04-14 20:00:00', NULL);
+
+-- payment 샘플 데이터
+INSERT INTO PAYMENT (member_id, ticket_id, amount, method, status, paid_at)
+VALUES (1, 10, 50000, 'CARD', 'SUCCESS', NOW()),
+       (2, 11, 30000, 'CASH', 'SUCCESS', NOW()),
+       (3, 12, 80000, 'TRANSFER', 'SUCCESS', NOW()),
+       (4, 13, 100000, 'CARD', 'SUCCESS', NOW()),
+       (5, 14, 150000, 'CARD', 'REFUND', '2026-04-10 14:30:00');
