@@ -7,9 +7,11 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @ToString
+
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+
 
 public class SeatUsageDTO {
     private int usageId;

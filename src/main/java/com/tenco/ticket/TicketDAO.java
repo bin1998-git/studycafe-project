@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TicketDAO {
+
     private TicketDTO mapToTicket(ResultSet rs) throws SQLException {
         return TicketDTO.builder()
                 .ticketId(rs.getInt("ticket_id"))
@@ -27,6 +28,7 @@ public class TicketDAO {
         String sql = """
                 SELECT * FROM ticket ORDER BY ticket_id
                 """;
+
         try (Connection conn = DBConnectionManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
@@ -34,8 +36,9 @@ public class TicketDAO {
             while (rs.next()) {
                 ticketList.add(mapToTicket(rs));
             }
-            return ticketList;
         }
+
+        return ticketList;
     }
 
     // ID로 1건 조회
@@ -43,6 +46,7 @@ public class TicketDAO {
         String sql = """
                 SELECT * FROM ticket WHERE ticket_id = ?
                 """;
+
         try (Connection conn = DBConnectionManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -54,15 +58,17 @@ public class TicketDAO {
                 }
             }
         }
+
         return null;
     }
 
     // 이용권 상품 등록
     public boolean insert(TicketDTO ticketDTO) throws SQLException {
         String sql = """
-                INSERT INTO TICKET (name, type, duration_value, price, description)
+                INSERT INTO ticket (name, type, duration_value, price, description)
                 VALUES (?, ?, ?, ?, ?)
                 """;
+
         try (Connection conn = DBConnectionManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -73,9 +79,7 @@ public class TicketDAO {
             pstmt.setString(5, ticketDTO.getDescription());
 
             int rows = pstmt.executeUpdate();
-
             return rows > 0;
-
         }
     }
 
@@ -84,12 +88,13 @@ public class TicketDAO {
         String sql = """
                 UPDATE ticket
                 SET name = ?,
-                	type = ?,
+                    type = ?,
                     duration_value = ?,
                     price = ?,
                     description = ?
                 WHERE ticket_id = ?
                 """;
+
         try (Connection conn = DBConnectionManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -98,9 +103,9 @@ public class TicketDAO {
             pstmt.setInt(3, ticketDTO.getDurationValue());
             pstmt.setInt(4, ticketDTO.getPrice());
             pstmt.setString(5, ticketDTO.getDescription());
+            pstmt.setInt(6, ticketDTO.getTicketId());
 
             int rows = pstmt.executeUpdate();
-
             return rows > 0;
         }
     }
@@ -108,15 +113,15 @@ public class TicketDAO {
     // 이용권 상품 삭제
     public boolean delete(int ticketId) throws SQLException {
         String sql = """
-                DELETE FROM ticket WHERE ticekt_id = ?
+                DELETE FROM ticket WHERE ticket_id = ?
                 """;
+
         try (Connection conn = DBConnectionManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, ticketId);
 
             int rows = pstmt.executeUpdate();
-
             return rows > 0;
         }
     }
