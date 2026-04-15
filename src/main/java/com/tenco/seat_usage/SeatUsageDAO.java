@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 @NoArgsConstructor
 @Data
@@ -74,17 +76,23 @@ public class SeatUsageDAO {
     // 회원별 이용 내역 조회
     public List<SeatUsageDTO> findByMemberId(int memberId) throws SQLException {
         List<SeatUsageDTO> seatUsageDTOList = new ArrayList<>();
-        String findByMemberidSql = """
-        SELECT * FROM SEATUSAGE WHERE member_id = ?
-        """;
+        // DDL 설계에 맞춰 SEAT_USAGE로 수정
+        String findByMemberidSql = "SELECT * FROM SEAT_USAGE WHERE member_id = ?";
+
         try (Connection conn = DBConnectionManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(findByMemberidSql)) {
+
             pstmt.setInt(1, memberId);
+
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-
+                    // mapToUsage에서 생성된 DTO를 리스트에 추가
+                    seatUsageDTOList.add(mapToUsage(rs));
                 }
             }
+        } catch (SQLException e) {
+            e.printStackTrace(); // 에러 로그 확인용
+            throw e;
         }
         return seatUsageDTOList;
     }
