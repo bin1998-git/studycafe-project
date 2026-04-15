@@ -16,6 +16,13 @@ public class MemberService {
             throw new RuntimeException("비밀번호 입력은 필수 입니다");
 
         }
+        if (member.getPhone() == null || member.getPhone().isBlank()) {
+            throw new IllegalArgumentException("전화번호 입력은 필수입니다");
+        }
+        if (member.getEmail() == null || member.getEmail().isBlank()) {
+            throw new IllegalArgumentException("이메일 입력은 필수입니다");
+        }
+
 
         // 2. 중복 체크
         if (memberDAO.existsByPhone(member.getPhone())) {
@@ -40,10 +47,10 @@ public class MemberService {
 
     // ID로 회원 조회, 없으면 예외
     public MemberDTO getMemberById(int id) throws SQLException {
-        if (id <= 0) {
-            throw new SQLException("회원 정보가 없습니다");
-        }
-        return memberDAO.findById(id);
+        MemberDTO member = memberDAO.findById(id);
+        if (member == null) throw new SQLException("존재하지 않는 회원입니다");
+        return member;
+
 
     }
 
@@ -57,12 +64,14 @@ public class MemberService {
 
     // 회원 정보 수정
     public boolean modifyMember(MemberDTO member) throws SQLException {
+        if (member == null) throw new IllegalArgumentException("회원 정보가 없습니다");
         return memberDAO.update(member);
 
     }
 
     // 회원 정보 삭제
     public boolean removeMember(int id) throws SQLException {
+        if (id <= 0) throw new IllegalArgumentException("유효하지 않은 ID입니다");
         return memberDAO.delete(id);
     }
 
