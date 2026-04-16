@@ -20,4 +20,5 @@ public class MemberTicketDTO {
     private LocalDateTime startedAt;
     private LocalDateTime expiredAt;
     private String status;
+    private int remainingMinutes;
 }

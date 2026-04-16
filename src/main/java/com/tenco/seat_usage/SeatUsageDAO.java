@@ -2,10 +2,7 @@ package com.tenco.seat_usage;
 
 
 import com.tenco.util.DBConnectionManager;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,10 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-@NoArgsConstructor
-@Data
-@Builder
-@AllArgsConstructor
+
 
 public class SeatUsageDAO {
 
@@ -32,13 +26,40 @@ public class SeatUsageDAO {
                     (?, ?, ?, ?, NULL)
                     """;
 
-            // todo - 5. 좌석 상태 변경
-        return false;
+            try (Connection conn = DBConnectionManager.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
+
+                pstmt.setInt(1, seatUsageDTO.getMemberId());
+                pstmt.setInt(2, seatUsageDTO.getSeatId());
+                pstmt.setInt(3, seatUsageDTO.getMemberTicketId());
+                pstmt.setTimestamp(4, java.sql.Timestamp.valueOf(seatUsageDTO.getStartedAt()));
+
+                int rows = pstmt.executeUpdate();
+                return rows > 0;
+            }
     }
 
 
     // 현재 이용중인 내역 조회
     public SeatUsageDTO findActiveByMemberId(int memberId) throws SQLException {
+        String sql = """
+                SELECT * FROM seat_usage
+                WHERE member_id = ? AND ended_at IS NULL
+                ORDER BY started_at DESC
+                LIMIT 1
+                """;
+
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, memberId);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapToUsage(rs);
+                }
+            }
+        }
 
         return null;
     }
@@ -47,7 +68,20 @@ public class SeatUsageDAO {
     // -- 트랜잭션
     // 퇴실 처리 ended_at 기록
     public boolean updateEndedAt(int memberId)  throws SQLException {
-        return false;
+        String sql = """
+                UPDATE seat_usage
+                SET ended_at = NOW()
+                WHERE member_id = ? AND ended_at IS NULL
+                """;
+
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, memberId);
+
+            int rows = pstmt.executeUpdate();
+            return rows > 0;
+        }
     }
 
 
@@ -76,23 +110,17 @@ public class SeatUsageDAO {
     // 회원별 이용 내역 조회
     public List<SeatUsageDTO> findByMemberId(int memberId) throws SQLException {
         List<SeatUsageDTO> seatUsageDTOList = new ArrayList<>();
-        // DDL 설계에 맞춰 SEAT_USAGE로 수정
-        String findByMemberidSql = "SELECT * FROM SEAT_USAGE WHERE member_id = ?";
-
+        String findByMemberIdSql = """
+        SELECT * FROM SEAT_USAGE WHERE member_id = ?
+        """;
         try (Connection conn = DBConnectionManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(findByMemberidSql)) {
-
+             PreparedStatement pstmt = conn.prepareStatement(findByMemberIdSql)) {
             pstmt.setInt(1, memberId);
-
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    // mapToUsage에서 생성된 DTO를 리스트에 추가
-                    seatUsageDTOList.add(mapToUsage(rs));
+
                 }
             }
-        } catch (SQLException e) {
-            e.printStackTrace(); // 에러 로그 확인용
-            throw e;
         }
         return seatUsageDTOList;
     }
@@ -101,12 +129,12 @@ public class SeatUsageDAO {
 
     public SeatUsageDTO mapToUsage(ResultSet rs) throws SQLException {
         return SeatUsageDTO.builder()
-                .usageId(rs.getInt("usage_id "))
+                .usageId(rs.getInt("usage_id"))
                 .memberId(rs.getInt("member_id"))
                 .seatId(rs.getInt("seat_id"))
                 .memberTicketId(rs.getInt("member_ticket_id"))
                 .startedAt(rs.getTimestamp("started_at").toLocalDateTime())
-                .endedAt(rs.getTimestamp("created_at").toLocalDateTime())
+                .endedAt(rs.getTimestamp("ended_at") != null ? rs.getTimestamp("ended_at").toLocalDateTime() : null)
                 .build();
 
     }
