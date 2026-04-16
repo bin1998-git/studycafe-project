@@ -372,3 +372,6 @@ VALUES (1, 1, 50000, 'CARD', 'SUCCESS', NOW()),
        (3, 3, 80000, 'TRANSFER', 'SUCCESS', NOW()),
        (4, 2, 100000, 'CARD', 'SUCCESS', NOW()),
        (5, 4, 150000, 'CARD', 'REFUND', NOW());
+
+ALTER TABLE MEMBER_TICKET ADD COLUMN remaining_minutes INT COMMENT '남은 시간(분)';
+-- 초기 값은 TICKET 테이블의 duration_value와 동일하게 설정됩니다.

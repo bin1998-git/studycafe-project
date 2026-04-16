@@ -20,14 +20,15 @@ public class MemberTicketDAO {
                 .startedAt(startedTs != null ? startedTs.toLocalDateTime() : null)
                 .expiredAt(expiredTs != null ? expiredTs.toLocalDateTime() : null)
                 .status(rs.getString("status"))
+                .remainingMinutes(rs.getInt("remaining_minutes"))
                 .build();
     }
 
     // 이용권 발급 레코드 생성
     public boolean insert(MemberTicketDTO memberTicketDTO) throws SQLException {
         String sql = """
-                INSERT INTO member_ticket (member_id, ticket_id, started_at, expired_at, status)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO member_ticket (member_id, ticket_id, started_at, expired_at, status, remaining_minutes)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """;
 
         try (Connection conn = DBConnectionManager.getConnection();
@@ -49,6 +50,7 @@ public class MemberTicketDAO {
             }
 
             pstmt.setString(5, memberTicketDTO.getStatus());
+            pstmt.setInt(6, memberTicketDTO.getRemainingMinutes());
 
             int rows = pstmt.executeUpdate();
             return rows > 0;
@@ -81,13 +83,14 @@ public class MemberTicketDAO {
         return memberTicketList;
     }
 
-    // ACTIVE 상태 이용권 1건 조회
+    // ACTIVE 또는 UNUSED 상태 이용권 1건 조회 (가장 오래된 것)
     public MemberTicketDTO findActiveByMemberId(int memberId) throws SQLException {
         String sql = """
                 SELECT *
                 FROM member_ticket
                 WHERE member_id = ?
-                  AND status = 'ACTIVE'
+                  AND status IN ('ACTIVE', 'UNUSED')
+                ORDER BY member_ticket_id ASC
                 LIMIT 1
                 """;
 
@@ -95,6 +98,29 @@ public class MemberTicketDAO {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setInt(1, memberId);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapToMemberTicket(rs);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // memberTicketId로 이용권 조회
+    public MemberTicketDTO findById(int memberTicketId) throws SQLException {
+        String sql = """
+                SELECT *
+                FROM member_ticket
+                WHERE member_ticket_id = ?
+                """;
+
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, memberTicketId);
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
@@ -137,6 +163,25 @@ public class MemberTicketDAO {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
             pstmt.setTimestamp(1, Timestamp.valueOf(startedAt));
+            pstmt.setInt(2, memberTicketId);
+
+            int rows = pstmt.executeUpdate();
+            return rows > 0;
+        }
+    }
+
+    // 남은 시간 업데이트
+    public boolean updateRemainingMinutes(int memberTicketId, int remainingMinutes) throws SQLException {
+        String sql = """
+                UPDATE member_ticket
+                SET remaining_minutes = ?
+                WHERE member_ticket_id = ?
+                """;
+
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, remainingMinutes);
             pstmt.setInt(2, memberTicketId);
 
             int rows = pstmt.executeUpdate();

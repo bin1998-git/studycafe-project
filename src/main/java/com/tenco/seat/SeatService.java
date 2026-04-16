@@ -4,12 +4,12 @@ import com.tenco.member_ticket.MemberTicketDAO;
 import com.tenco.member_ticket.MemberTicketDTO;
 import com.tenco.seat_usage.SeatUsageDAO;
 import com.tenco.seat_usage.SeatUsageDTO;
-import com.tenco.util.DBConnectionManager;
+import com.tenco.ticket.TicketDAO;
+import com.tenco.ticket.TicketDTO;
 
-import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 public class SeatService {
@@ -17,6 +17,7 @@ public class SeatService {
     private final SeatDAO seatDAO = new SeatDAO();
     private final SeatUsageDAO seatUsageDAO = new SeatUsageDAO();
     private final MemberTicketDAO memberTicketDAO = new MemberTicketDAO();
+    private final TicketDAO ticketDAO = new TicketDAO();
 
     // 좌석 등록
     public boolean addSeat(SeatDTO seatDTO) throws SQLException {
@@ -63,95 +64,90 @@ public class SeatService {
     }
 
     public boolean checkIn(int memberId, int seatId) throws SQLException {
-        // 1. 좌석 정보 및 상태 확인 (SeatDAO)
-        SeatDTO seat = seatDAO.findById(seatId);
-        if (seat == null || !"AVAILABLE".equals(seat.getStatus().toString())) {
-            throw new SQLException("이용 가능한 좌석이 아닙니다.");
+        // 1. 좌석 정보 및 상태 확인
+        SeatDTO seat = seatDAO.findSeatById(seatId);
+        if (seat == null || seat.getStatus() != Status.AVAILABLE) {
+            throw new SQLException("현재 이용할 수 없는 좌석입니다.");
         }
 
-        // 2. 사용 가능한 이용권 조회 (MemberTicketDAO)
-        // (참고: 회원의 UNUSED 또는 ACTIVE 상태인 티켓을 찾는 기능이 필요합니다)
+        // 2. 보유 이용권 검증 (가장 오래된 UNUSED 또는 ACTIVE 티켓)
         MemberTicketDTO ticket = memberTicketDAO.findActiveByMemberId(memberId);
         if (ticket == null) {
             throw new SQLException("사용 가능한 이용권이 없습니다.");
         }
 
-        // 3. 타입 검증 (기획 문서: 일반석=시간권, 프리미엄석=기간권)
-        String seatType = seat.getSeatType().toString(); // STANDARD or PREMIUM
-        String ticketType = ticket.getType().toString(); // TIME or DAY
+        // 3. 타입 일치 여부 검증 (일반-시간 / 프리미엄-기간)
+        TicketDTO ticketInfo = ticketDAO.findById(ticket.getTicketId());
+        boolean isTimeTicket = ticketInfo.getType() == com.tenco.ticket.TicketType.TIME;
+        boolean isPeriodTicket = ticketInfo.getType() == com.tenco.ticket.TicketType.PERIOD;
+        boolean isStandardSeat = seat.getSeatType() == SeatType.STANDARD;
+        boolean isPremiumSeat = seat.getSeatType() == SeatType.PREMIUM;
 
-        boolean isValid = (seatType.equals("STANDARD") && ticketType.equals("TIME")) ||
-                (seatType.equals("PREMIUM") && ticketType.equals("DAY"));
-
-        if (!isValid) {
-            throw new SQLException("좌석 타입과 이용권 타입이 일치하지 않습니다. (일반석-시간권 / 프리미엄석-기간권)");
+        if ((isStandardSeat && !isTimeTicket) || (isPremiumSeat && !isPeriodTicket)) {
+            throw new SQLException("좌석 타입과 보유하신 이용권 타입이 맞지 않습니다.");
         }
 
-        // 4. 이용 내역 생성 및 저장 (SeatUsageDAO.insert 호출)
-        SeatUsageDTO usage = new SeatUsageDTO();
-        usage.setMemberId(memberId);
-        usage.setSeatId(seatId);
-        usage.setMemberTicketId(ticket.getMemberTicketId());
-        usage.setStartedAt(LocalDateTime.now()); // 현재 시각 입실
+        // 4. 이용 내역 생성 (새로 만드신 Builder 패턴 적용)
+        SeatUsageDTO usage = SeatUsageDTO.builder()
+                .memberId(memberId)
+                .seatId(seatId)
+                .memberTicketId(ticket.getMemberTicketId())
+                .startedAt(LocalDateTime.now())
+                .build();
 
+        // 5. 입실 흐름 실행 (DAO 순차 호출)
         boolean isInserted = seatUsageDAO.insert(usage);
-
         if (isInserted) {
-            // 5. 좌석 상태 변경 (SeatDAO)
-            seatDAO.updateStatus(seatId, Status.valueOf("IN_USE"));
+            seatDAO.updateStatus(seatId, Status.IN_USE);
 
-            // 6. 이용권이 미사용(UNUSED)이었다면 사용중(ACTIVE)으로 변경 및 시작일 기록
-            if ("UNUSED".equals(ticket.getStatus().toString())) {
+            // 처음 사용하는 티켓이면 활성화 및 남은 시간 설정
+            if ("UNUSED".equals(ticket.getStatus())) {
                 memberTicketDAO.updateStatus(ticket.getMemberTicketId(), "ACTIVE");
                 memberTicketDAO.updateStartedAt(ticket.getMemberTicketId(), LocalDateTime.now());
+                if (isTimeTicket) {
+                    memberTicketDAO.updateRemainingMinutes(ticket.getMemberTicketId(), ticketInfo.getDurationValue());
+                }
             }
             return true;
         }
-
         return false;
     }
 
     /**
      * 퇴실 처리 (SFR-026)
-     * 제공된 SeatUsageDAO.updateEndedAt()을 활용하여 퇴실 및 시간 차감을 처리합니다.
+     * - 최신 DAO 코드에 맞추어 memberId 기반으로 활성화된 내역을 찾아 처리합니다.
      */
-    public boolean checkOut(int usageId) throws SQLException {
-        // 1. 이용 내역 상세 조회 (SeatUsageDAO에 findById(usageId)가 있다고 가정)
-        // 만약 없다면 findActiveByMemberId 등을 조합해서 찾아야 합니다.
-        SeatUsageDTO usage = seatUsageDAO.findById(usageId);
-        if (usage == null || usage.getEndedAt() != null) {
-            throw new SQLException("이미 종료되었거나 존재하지 않는 이용 내역입니다.");
+    public boolean checkOut(int memberId) throws SQLException {
+        // 1. 현재 해당 회원이 이용 중인 내역 찾기
+        SeatUsageDTO usage = seatUsageDAO.findActiveByMemberId(memberId);
+        if (usage == null) {
+            throw new SQLException("현재 이용 중인 좌석이 없습니다.");
         }
 
-        // 2. 보유 이용권 정보 조회 (MemberTicketDAO)
+        // 2. 이용권 정보 조회
         MemberTicketDTO ticket = memberTicketDAO.findById(usage.getMemberTicketId());
+        TicketDTO ticketInfo = ticketDAO.findById(ticket.getTicketId());
 
-        // 3. 시간권(TIME)인 경우 남은 시간 계산 및 차감
-        if ("TIME".equals(ticket.getType().toString())) {
-            LocalDateTime now = LocalDateTime.now();
-            // 실제 이용한 시간(분) 계산
-            long usedMinutes = Duration.between(usage.getStartedAt(), now).toMinutes();
+        // 3. 남은 시간 계산 및 차감 (시간권인 경우)
+        if (ticketInfo.getType() == com.tenco.ticket.TicketType.TIME) {
+            long usedMinutes = Duration.between(usage.getStartedAt(), LocalDateTime.now()).toMinutes();
 
-            // DTO의 남은 시간 필드(remainingMinutes)에서 차감
-            int newRemaining = ticket.getRemainingMinutes() - (int) usedMinutes;
-
-            if (newRemaining <= 0) {
-                newRemaining = 0;
-                memberTicketDAO.updateStatus(ticket.getMemberTicketId(), "EXPIRED"); // 만료 처리
+            int updatedRemaining = ticket.getRemainingMinutes() - (int) usedMinutes;
+            if (updatedRemaining <= 0) {
+                updatedRemaining = 0;
+                memberTicketDAO.updateStatus(ticket.getMemberTicketId(), "EXPIRED");
             }
-            // DB에 남은 시간 저장
-            memberTicketDAO.updateRemainingMinutes(ticket.getMemberTicketId(), newRemaining);
+            memberTicketDAO.updateRemainingMinutes(ticket.getMemberTicketId(), updatedRemaining);
         }
 
-        // 4. 퇴실 시각 기록 (SeatUsageDAO.updateEndedAt 호출)
-        boolean isUpdated = seatUsageDAO.updateEndedAt(usageId);
+        // 4. 퇴실 흐름 실행
+        // (작성하신 SeatUsageDAO의 updateEndedAt이 memberId를 받도록 되어 있어 그에 맞췄습니다)
+        boolean isUsageUpdated = seatUsageDAO.updateEndedAt(memberId);
 
-        if (isUpdated) {
-            // 5. 좌석 상태 변경 (SeatDAO: AVAILABLE)
-            seatDAO.updateStatus(usage.getSeatId(), Status.valueOf("AVAILABLE"));
+        if (isUsageUpdated) {
+            seatDAO.updateStatus(usage.getSeatId(), Status.AVAILABLE);
             return true;
         }
-
         return false;
     }
 }
