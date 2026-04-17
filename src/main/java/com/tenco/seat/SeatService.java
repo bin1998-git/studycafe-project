@@ -1,7 +1,11 @@
 package com.tenco.seat;
 
+import com.tenco.member.MemberDAO;
+import com.tenco.member.MemberDTO;
 import com.tenco.member_ticket.MemberTicketDAO;
 import com.tenco.member_ticket.MemberTicketDTO;
+import com.tenco.notification.NotificationDAO;
+import com.tenco.notification.NotificationDTO;
 import com.tenco.seat_usage.SeatUsageDAO;
 import com.tenco.seat_usage.SeatUsageDTO;
 import com.tenco.ticket.TicketDAO;
@@ -18,6 +22,8 @@ public class SeatService {
     private final SeatUsageDAO seatUsageDAO = new SeatUsageDAO();
     private final MemberTicketDAO memberTicketDAO = new MemberTicketDAO();
     private final TicketDAO ticketDAO = new TicketDAO();
+    private final NotificationDAO notificationDAO = new NotificationDAO();
+    private final MemberDAO memberDAO = new MemberDAO();
 
     // 좌석 등록
     public boolean addSeat(SeatDTO seatDTO) throws SQLException {
@@ -40,6 +46,33 @@ public class SeatService {
     // 사용 가능 자리 리스트 조회
     public List<SeatDTO> getAvailableSeats() throws SQLException {
         return seatDAO.findAvailable();
+    }
+
+    // 좌석 번호(A1, P3 등) → seatId 로 변환. 없으면 -1
+    public int findSeatIdByNumber(String seatNumber) throws SQLException {
+        SeatDTO s = seatDAO.findSeatByNumber(seatNumber);
+        return (s == null) ? -1 : s.getSeatId();
+    }
+
+    /**
+     * 사용자가 좌석 ID 숫자("1","2")로 입력했거나
+     * 좌석 번호 문자열("A1","P3", "a1")로 입력했을 때
+     * 모두 seatId(int) 로 변환해준다.
+     * 찾지 못하면 -1.
+     */
+    public int resolveSeatId(String input) throws SQLException {
+        if (input == null) return -1;
+        String v = input.trim();
+        if (v.isEmpty()) return -1;
+        // 숫자면 먼저 ID로 시도
+        try {
+            int id = Integer.parseInt(v);
+            SeatDTO byId = seatDAO.findSeatById(id);
+            if (byId != null) return byId.getSeatId();
+        } catch (NumberFormatException ignored) {}
+        // 그래도 못 찾으면 seat_number 로 조회
+        SeatDTO s = seatDAO.findSeatByNumber(v);
+        return (s == null) ? -1 : s.getSeatId();
     }
 
     // 좌석 상태 변경
@@ -108,6 +141,10 @@ public class SeatService {
                     memberTicketDAO.updateRemainingMinutes(ticket.getMemberTicketId(), ticketInfo.getDurationValue());
                 }
             }
+
+            // 6. 이력 알림 기록
+            logNotification(memberId, "SEAT_START",
+                    lookupMemberName(memberId) + " 회원이 " + seat.getSeatNumber() + " 좌석에 입실했습니다.");
             return true;
         }
         return false;
@@ -146,8 +183,37 @@ public class SeatService {
 
         if (isUsageUpdated) {
             seatDAO.updateStatus(usage.getSeatId(), Status.AVAILABLE);
+
+            // 이력 알림 기록
+            SeatDTO seatInfo = seatDAO.findSeatById(usage.getSeatId());
+            String seatNumber = (seatInfo != null) ? seatInfo.getSeatNumber() : ("ID" + usage.getSeatId());
+            logNotification(memberId, "SEAT_END",
+                    lookupMemberName(memberId) + " 회원이 " + seatNumber + " 좌석에서 퇴실했습니다.");
             return true;
         }
         return false;
+    }
+
+    /** 회원명 조회 (실패 시 member#id 로 대체) */
+    private String lookupMemberName(int memberId) {
+        try {
+            MemberDTO m = memberDAO.findById(memberId);
+            return m != null && m.getName() != null ? m.getName() : ("회원#" + memberId);
+        } catch (Exception e) {
+            return "회원#" + memberId;
+        }
+    }
+
+    /** 입/퇴실 이력 알림 저장 (실패해도 본 흐름에는 영향 없도록 swallow) */
+    private void logNotification(int memberId, String type, String message) {
+        try {
+            NotificationDTO n = NotificationDTO.builder()
+                    .memberId(memberId)
+                    .type(type)
+                    .message(message)
+                    .isRead(false)
+                    .build();
+            notificationDAO.insert(n);
+        } catch (Exception ignored) {}
     }
 }

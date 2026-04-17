@@ -1,10 +1,16 @@
 package com.tenco;
 
-//TIP 코드를 <b>실행</b>하려면 <shortcut actionId="Run"/>을(를) 누르거나
-// 에디터 여백에 있는 <icon src="AllIcons.Actions.Execute"/> 아이콘을 클릭하세요.
-public class Main {
+import com.tenco.view.StudyCafeView;
+import javax.swing.SwingUtilities;
+
+public class    Main {
     public static void main(String[] args) {
+        // macOS 상단 메뉴바 통합 (Windows/Linux에서는 무시됨)
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
 
-
+        SwingUtilities.invokeLater(() -> {
+            StudyCafeView view = new StudyCafeView();
+            view.setVisible(true);
+        });
     }
 }

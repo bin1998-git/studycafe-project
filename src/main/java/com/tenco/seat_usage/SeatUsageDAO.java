@@ -91,16 +91,14 @@ public class SeatUsageDAO {
         List<SeatUsageDTO> seatUsageDTOList = new ArrayList<>();
 
         String sql = """
-                SELECT * FROM SEAT_USAGE WHERE usage_id
+                SELECT * FROM SEAT_USAGE ORDER BY usage_id DESC
                 """;
 
         try (Connection conn = DBConnectionManager.getConnection();
-            PreparedStatement pstm = conn.prepareStatement(sql)) {
-
-            try (ResultSet rs = pstm.executeQuery()) {
-                while (rs.next()) {
+            PreparedStatement pstm = conn.prepareStatement(sql);
+            ResultSet rs = pstm.executeQuery()) {
+            while (rs.next()) {
                 seatUsageDTOList.add(mapToUsage(rs));
-                }
             }
         }
         return seatUsageDTOList;
@@ -111,14 +109,14 @@ public class SeatUsageDAO {
     public List<SeatUsageDTO> findByMemberId(int memberId) throws SQLException {
         List<SeatUsageDTO> seatUsageDTOList = new ArrayList<>();
         String findByMemberIdSql = """
-        SELECT * FROM SEAT_USAGE WHERE member_id = ?
+        SELECT * FROM SEAT_USAGE WHERE member_id = ? ORDER BY started_at DESC
         """;
         try (Connection conn = DBConnectionManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(findByMemberIdSql)) {
             pstmt.setInt(1, memberId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-
+                    seatUsageDTOList.add(mapToUsage(rs));
                 }
             }
         }

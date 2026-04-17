@@ -19,7 +19,7 @@ public class DBConnectionManager {
     static {
 
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:mysql://localhost:3306/convenience_store?");
+        config.setJdbcUrl("jdbc:mysql://localhost:3306/study_cafe_db?serverTimeZone=Asia/Seoul");
         config.setUsername(System.getenv("DB_USER"));
         config.setPassword(System.getenv("DB_PASSWORD"));
 

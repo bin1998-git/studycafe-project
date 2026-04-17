@@ -54,6 +54,37 @@ public class MemberService {
 
     }
 
+    // 전화번호로 회원 조회 (없으면 null)
+    public MemberDTO findByPhone(String phone) throws SQLException {
+        if (phone == null || phone.isBlank()) return null;
+        return memberDAO.findByPhone(phone);
+    }
+
+    /**
+     * 숫자(회원 ID) 또는 전화번호(010-xxxx-xxxx, 01011112222 모두 허용)
+     * 로 회원을 찾아 member_id 를 반환. 없으면 -1.
+     */
+    public int resolveMemberId(String input) throws SQLException {
+        if (input == null) return -1;
+        String v = input.trim();
+        if (v.isEmpty()) return -1;
+
+        // 전화번호로 판별: '-' 포함 또는 길이 8자리 이상의 숫자열
+        String digits = v.replaceAll("[^0-9]", "");
+        boolean looksLikePhone = v.contains("-") || digits.length() >= 9;
+
+        if (!looksLikePhone) {
+            try {
+                int id = Integer.parseInt(v);
+                MemberDTO m = memberDAO.findById(id);
+                if (m != null) return m.getMemberId();
+            } catch (NumberFormatException ignored) {}
+        }
+        // 전화번호 조회
+        MemberDTO m = memberDAO.findByPhone(v);
+        return (m == null) ? -1 : m.getMemberId();
+    }
+
     // 이름 검색
     public List<MemberDTO> searchByName(String name) throws SQLException {
         if (name == null || name.isBlank()) {

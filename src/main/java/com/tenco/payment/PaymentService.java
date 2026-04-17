@@ -24,13 +24,13 @@ public class PaymentService {
         return false; // 티켓이 존재하지 않음
       }
 
-      // 결제 DTO 생성
+      // 결제 DTO 생성 (DB ENUM 값과 대소문자 일치)
       PaymentDTO payment = PaymentDTO.builder()
           .member_id(member_id)
           .ticket_id(ticket_id)
           .amount(ticket.getPrice())
-          .method(method)
-          .status("success")
+          .method(method == null ? null : method.toUpperCase())
+          .status("SUCCESS")
           .paidAt(LocalDateTime.now())
           .build();
 
@@ -92,7 +92,7 @@ public class PaymentService {
       List<PaymentDTO> payments = paymentDAO.findAll();
       PaymentDTO payment = null;
       for (PaymentDTO p : payments) {
-        if (p.getTicket_id() == ticket_id && "success".equals(p.getStatus())) {
+        if (p.getTicket_id() == ticket_id && "SUCCESS".equalsIgnoreCase(p.getStatus())) {
           payment = p;
           break;
         }
@@ -102,7 +102,7 @@ public class PaymentService {
       }
 
       // 결제 상태 변경
-      boolean paymentUpdate = paymentDAO.updateStatus(payment.getPayment_id(), "refund");
+      boolean paymentUpdate = paymentDAO.updateStatus(payment.getPayment_id(), "REFUND");
       if (!paymentUpdate) {
         return false;
       }
@@ -110,8 +110,8 @@ public class PaymentService {
       // 이용권 상태 변경 (member_ticket에서 ticket_id로 찾기)
       List<MemberTicketDTO> memberTickets = memberTicketDAO.findByMemberId(payment.getMember_id());
       for (MemberTicketDTO mt : memberTickets) {
-        if (mt.getTicketId() == ticket_id && "ACTIVE".equals(mt.getStatus())) {
-          boolean ticketUpdate = memberTicketDAO.updateStatus(mt.getMemberTicketId(), "expired");
+        if (mt.getTicketId() == ticket_id && "ACTIVE".equalsIgnoreCase(mt.getStatus())) {
+          boolean ticketUpdate = memberTicketDAO.updateStatus(mt.getMemberTicketId(), "EXPIRED");
           if (!ticketUpdate) {
             return false;
           }

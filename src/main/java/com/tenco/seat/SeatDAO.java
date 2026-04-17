@@ -31,7 +31,7 @@ public class SeatDAO {
 
     // seatId 로 좌석 한 건 조회
     public SeatDTO findSeatById(int seatId) throws SQLException {
-        SeatDTO seatDTO = new SeatDTO();
+        SeatDTO seatDTO = null;
         String sql = """
                 SELECT * FROM seat WHERE seat_id = ?
                 """;
@@ -39,11 +39,28 @@ public class SeatDAO {
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, seatId);
             ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
+            if (rs.next()) {
                 seatDTO = mapToSeat(rs);
             }
         }
         return seatDTO;
+    }
+
+    // seatNumber (예: "A1", "P3") 로 좌석 한 건 조회 — 대소문자 무시
+    public SeatDTO findSeatByNumber(String seatNumber) throws SQLException {
+        if (seatNumber == null) return null;
+        String sql = """
+                SELECT * FROM seat WHERE UPPER(seat_number) = UPPER(?)
+                """;
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, seatNumber.trim());
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return mapToSeat(rs);
+            }
+        }
+        return null;
     }
 
     // 사용 가능한 자리 모두 조회
@@ -119,8 +136,8 @@ public class SeatDAO {
         return SeatDTO.builder()
                 .seatId(rs.getInt("seat_id"))
                 .seatNumber(rs.getString("seat_number"))
-                .seatType(rs.getObject("seat_type", SeatType.class))
-                .status(rs.getObject("status", Status.class))
+                .seatType(SeatType.valueOf(rs.getString("seat_type")))
+                .status(Status.valueOf(rs.getString("status")))
                 .zone(rs.getString("zone"))
                 .build();
     }

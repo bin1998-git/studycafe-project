@@ -104,6 +104,23 @@ public class MemberDAO {
 
     }
 
+    // 전화번호로 회원 조회 (하이픈 유무 / 숫자만 입력 모두 허용)
+    public MemberDTO findByPhone(String phone) throws SQLException {
+        if (phone == null) return null;
+        String sql = """
+                SELECT * FROM MEMBER
+                WHERE REPLACE(phone, '-', '') = REPLACE(?, '-', '')
+                """;
+        try (Connection conn = DBConnectionManager.getConnection();
+             PreparedStatement pstm = conn.prepareStatement(sql)) {
+            pstm.setString(1, phone.trim());
+            try (ResultSet rs = pstm.executeQuery()) {
+                if (rs.next()) return mapToMember(rs);
+            }
+        }
+        return null;
+    }
+
     // 전화번호 중복 체크
     public boolean existsByPhone(String phone) throws SQLException {
         String sql = """
